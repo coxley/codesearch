@@ -40,6 +40,7 @@ func init() {
 					fatalf("couldn't save config: %v", err)
 				}
 				fmt.Println("Saved")
+				return
 			}
 
 			var answer string
@@ -69,6 +70,8 @@ func init() {
 			fmt.Print("What's the org's name?: ")
 			fmt.Scanln(&answer)
 			viper.Set("org", answer)
+			fmt.Println("Saved")
+			return
 		},
 	})
 	rootCmd.AddCommand(&cobra.Command{
