@@ -20,6 +20,11 @@ Don't hesitate to give feedback if you've got it. :)
 
 ![](./demo.gif)
 
+# What about Sourcegraph? LiveGrep?
+
+Listen, I'm barely navigating the sea of SaaS as it is. My company doesn't have
+it and this only cost booze and a weekend.
+
 # Install
 
 ```
@@ -161,9 +166,3 @@ rtprompt/rtprompt.go:212:     }
 rtprompt/rtprompt.go:213:     p.advance(string(key.Rune))
 rtprompt/rtprompt.go:214:   }
 ```
-
-
-# What about Sourcegraph? LiveGrep?
-
-Listen, I'm barely navigating the sea of SaaS as it is. My company doesn't have
-it and this only cost booze and a weekend.
