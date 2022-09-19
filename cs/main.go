@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -62,6 +63,7 @@ var flags = struct {
 	verbose   bool
 	showQuery bool
 	dumpData  bool
+	tabWidth  int
 
 	// includeArchived bool
 }{}
@@ -94,10 +96,14 @@ func init() {
 	rootCmd.Flags().StringVar(&flags.formatStr, "format", defaultFmt, "custom format string (variables: $owner, $repo_name, $repo_path, $path, $lineno, $colno, $text, $url)")
 	rootCmd.Flags().BoolVar(&flags.contentOnly, "content", false, "print only the text results, nothing else")
 
+	rootCmd.Flags().IntVar(&flags.tabWidth, "tabwidth", 2, "number of spaces to display tabs as")
+
 	// TODO: Unfortunately only cs.github.com has archive term support at the moment
 	// rootCmd.Flags().BoolVarP(&flags.includeArchived, "archived", "a", false, "include results from archived repositories")
 
 	viper.BindPFlag("org", rootCmd.Flags().Lookup("org"))
+	viper.BindPFlag("format", rootCmd.Flags().Lookup("format"))
+	viper.BindPFlag("tabwidth", rootCmd.Flags().Lookup("tabwidth"))
 
 	// TODO: have an interactive option that's just a glorified `less` with the
 	// ability to toggle fully-qualified repo + path + whatever metadata without
@@ -363,9 +369,36 @@ func (m *match) url() string {
 	)
 }
 
+type FileKeys []FileKey
+
+func (f FileKeys) Len() int {
+	return len(f)
+}
+
+func (f FileKeys) Swap(i, j int) {
+	f[i], f[j] = f[j], f[i]
+}
+
+func (f FileKeys) Less(i, j int) bool {
+	fi := f[i]
+	iName := fmt.Sprintf("%s-%s-%s", fi.Owner, fi.Name, fi.Path)
+	fj := f[j]
+	jName := fmt.Sprintf("%s-%s-%s", fj.Owner, fj.Name, fj.Path)
+	return iName < jName
+}
+
 func createMatches(searchResult SearchResult, fullText FullText, defaultBranches map[string]string) []match {
+	// Consistent sort.
+	// It's also easier to read when things gradually follow similar lines optically.
+	sortedKeys := []FileKey{}
+	for key := range searchResult {
+		sortedKeys = append(sortedKeys, key)
+	}
+	sort.Sort(FileKeys(sortedKeys))
+
 	matches := []match{}
-	for key, textMatches := range searchResult {
+	for _, key := range sortedKeys {
+		textMatches := searchResult[key]
 		content := fullText.Values[key]
 
 		for _, tm := range textMatches {
@@ -460,7 +493,7 @@ func createMatches(searchResult SearchResult, fullText FullText, defaultBranches
 						path:   key.Path,
 						lineno: lineno - len(leading) + i,
 						colno:  0,
-						text:   l,
+						text:   shrinkTabs(l),
 					})
 				}
 
@@ -471,7 +504,7 @@ func createMatches(searchResult SearchResult, fullText FullText, defaultBranches
 					path:   key.Path,
 					lineno: lineno,
 					colno:  idx - start,
-					text:   content[start : end+1],
+					text:   shrinkTabs(content[start : end+1]),
 				})
 
 				for i, l := range trailing {
@@ -482,7 +515,7 @@ func createMatches(searchResult SearchResult, fullText FullText, defaultBranches
 						path:   key.Path,
 						lineno: lineno + i + 1,
 						colno:  0,
-						text:   l,
+						text:   shrinkTabs(l),
 					})
 				}
 			}
@@ -496,6 +529,13 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// shrinkTabs into 2-width spaces
+//
+// The screen is cramped enough trying to fit repo context in without a monorepo
+func shrinkTabs(s string) string {
+	return strings.ReplaceAll(s, "\t", strings.Repeat(" ", flags.tabWidth))
 }
 
 func contextLines(content string, lineno, before, after int) (leading, trailing []string) {
