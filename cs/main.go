@@ -24,10 +24,14 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "cs",
+	Use:   "cs [terms] [flags]",
 	Short: "Codesearch wraps the GitHub API to be closer to grep/ag/etc semantics",
-	Run:   execute,
-	Args:  cobra.MinimumNArgs(1),
+	Long: `
+Positional args are merged into a single string and used as the search term. Refer to
+GitHub's documentation for nuances: https://docs.github.com/en/search-github/searching-on-github/searching-code
+	`,
+	Run:  execute,
+	Args: cobra.MinimumNArgs(1),
 }
 
 // Defaults should be filled in by pflags vs. zero-values
