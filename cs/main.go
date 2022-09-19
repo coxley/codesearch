@@ -27,8 +27,14 @@ var rootCmd = &cobra.Command{
 	Use:   "cs [terms] [flags]",
 	Short: "Codesearch wraps the GitHub API to be closer to grep/ag/etc semantics",
 	Long: `
+Codesearch wraps the GitHub API to be closer to grep/ag/et al semantics
+
 Positional args are merged into a single string and used as the search term. Refer to
 GitHub's documentation for nuances: https://docs.github.com/en/search-github/searching-on-github/searching-code
+
+While we've done our best, GitHub can be harsh with ratelimiting. If your org
+has consistent branch names, consider running 'cs set-default-branch' to
+alleviate some pressure.
 	`,
 	Run:  execute,
 	Args: cobra.MinimumNArgs(1),
