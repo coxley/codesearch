@@ -43,8 +43,11 @@ alleviate some pressure.
 
 // Defaults should be filled in by pflags vs. zero-values
 var flags = struct {
-	org  string
-	lang string
+	org      string
+	lang     string
+	filename string
+	path     string
+	ext      string
 
 	limit         int
 	after         int
@@ -76,13 +79,16 @@ func init() {
 
 	rootCmd.Flags().StringVarP(&flags.org, "org", "o", "", "scope search with a single organization:[org]")
 	rootCmd.Flags().StringVar(&flags.lang, "lang", "", "scope search with a single language:[lang]")
+	rootCmd.Flags().StringVarP(&flags.filename, "filename", "f", "", "scope search by filename")
+	rootCmd.Flags().StringVarP(&flags.path, "path", "p", "", "scope search by the path files are in")
+	rootCmd.Flags().StringVarP(&flags.ext, "ext", "x", "", "scope search by file extension")
 
 	rootCmd.Flags().IntVarP(&flags.after, "after-context", "A", 0, "print [num] lines of trailing context after each match")
 	rootCmd.Flags().IntVarP(&flags.before, "before-context", "B", 0, "print [num] lines of leading context before each match")
 	rootCmd.Flags().IntVarP(&flags.context, "context", "C", 0, "print [num] lines of context before and after each match")
 	rootCmd.Flags().BoolVarP(&flags.count, "count", "c", false, "print only a count of matches")
 
-	rootCmd.Flags().BoolVarP(&flags.printURLs, "urls", "u", false, "print URLs to the selected line as the prefix before text")
+	rootCmd.Flags().BoolVarP(&flags.printURLs, "url", "u", false, "print URLs to the selected line as the prefix before text")
 	rootCmd.Flags().BoolVarP(&flags.onlyFiles, "files-only", "l", false, "print only filenames of matches to stdout")
 	rootCmd.Flags().BoolVar(&flags.onlyRepos, "repos-only", false, "print only repository names containing matches to stdout")
 	rootCmd.Flags().BoolVar(&flags.onlyFullNames, "full-names-only", false, "print only fully-qualified repo names to stdout (your/repo path/to/README.md)")
@@ -104,6 +110,7 @@ func init() {
 	viper.BindPFlag("org", rootCmd.Flags().Lookup("org"))
 	viper.BindPFlag("format", rootCmd.Flags().Lookup("format"))
 	viper.BindPFlag("tabwidth", rootCmd.Flags().Lookup("tabwidth"))
+	viper.BindPFlag("url", rootCmd.Flags().Lookup("url"))
 
 	// TODO: have an interactive option that's just a glorified `less` with the
 	// ability to toggle fully-qualified repo + path + whatever metadata without
@@ -278,6 +285,18 @@ func makeQuery(args []string) string {
 
 	if lang := flags.lang; lang != "" {
 		query += "language:" + lang + " "
+	}
+
+	if filename := flags.filename; filename != "" {
+		query += "filename:" + filename + " "
+	}
+
+	if path := flags.path; path != "" {
+		query += "path:" + path + " "
+	}
+
+	if ext := flags.ext; ext != "" {
+		query += "extension:" + ext + " "
 	}
 
 	return strings.Join(args, " ") + " " + query
