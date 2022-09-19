@@ -178,12 +178,7 @@ func execute(cmd *cobra.Command, args []string) {
 	}
 
 	matches := createMatches(searchResult, fullText, defaultBranches)
-	var shown int
 	for _, m := range matches {
-		if flags.limit > 0 && shown >= flags.limit {
-			break
-		}
-
 		if flags.contentOnly {
 			fmt.Println(m.text)
 			continue
@@ -212,7 +207,6 @@ func execute(cmd *cobra.Command, args []string) {
 		out = strings.ReplaceAll(out, "$text", m.text)
 		out = strings.ReplaceAll(out, "$url", color.BlueString(m.url()))
 		fmt.Println(out)
-		shown++
 	}
 }
 
@@ -416,11 +410,16 @@ func createMatches(searchResult SearchResult, fullText FullText, defaultBranches
 	sort.Sort(FileKeys(sortedKeys))
 
 	matches := []match{}
+	var shown int
 	for _, key := range sortedKeys {
 		textMatches := searchResult[key]
 		content := fullText.Values[key]
 
 		for _, tm := range textMatches {
+
+			if flags.limit > 0 && shown >= flags.limit {
+				break
+			}
 
 			// Locate fragment in full text
 			fragIdx := strings.Index(content, tm.Fragment)
@@ -432,6 +431,11 @@ func createMatches(searchResult SearchResult, fullText FullText, defaultBranches
 				v("search term:%v", tm.Fragment)
 				continue
 			}
+
+			// Bump how many unique fragments we've seen.
+			// Doing this before we do line-math because we don't want limit to
+			// affect contextual flags. (-A, -B, -C)
+			shown++
 
 			// Used as a starting point to isolated match *lines* from match *tokens*
 			startPositions := []int{}
