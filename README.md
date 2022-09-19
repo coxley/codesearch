@@ -7,10 +7,8 @@ search to be fluid. Iterative. And most interfaces built for web won't enable th
 
 There are a handful of tools I was spoiled by @facebook and `BigGrep` was one
 of them. `cs` usage is modeled after what I remember about it. It wraps around
-GitHub's REST and GraphQL APIs:
-
-- REST Search to get a collection of ranked results
-- GraphQL to get file contents for supporting context flags (`-A`, `-B`, `-C`)
+GitHub's REST and GraphQL APIs. One to get a collection of ranked results, the
+other to get file contents for stuff like `--context`.
 
 There are some quirks. We have a default `--limit` of 30. You can increase but
 anything above 100 incurs round-trips to GitHub. Rapid fire queries can
