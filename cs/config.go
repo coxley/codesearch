@@ -33,6 +33,15 @@ func init() {
 		Use:   "set-org",
 		Short: "Scope all searches to be within a GitHub organization",
 		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) == 1 {
+				viper.Set("org", args[0])
+				err := viper.WriteConfig()
+				if err != nil {
+					fatalf("couldn't save config: %v", err)
+				}
+				fmt.Println("Saved")
+			}
+
 			var answer string
 			names, err := listOrgs()
 			if err == nil {
