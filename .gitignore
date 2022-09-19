@@ -13,3 +13,6 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# To stop me from pushing go build artifacts
+cs/cs
