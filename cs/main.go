@@ -606,8 +606,14 @@ func printFullNames(r SearchResult) {
 }
 
 func printRepos(r SearchResult) {
+	seen := map[string]struct{}{}
 	for key := range r {
-		fmt.Println(key.RepoString())
+		s := key.RepoString()
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		fmt.Println(s)
+		seen[s] = struct{}{}
 	}
 }
 
