@@ -463,6 +463,10 @@ func createMatches(searchResult SearchResult, fullText FullText, defaultBranches
 				ansiOverhead += len(highlight) - len(content[i:j])
 			}
 
+			// These start positions may cohabitate the same line. We want to
+			// avoid printing both out - we've already color highlighted
+			// everything!
+			foundLinenos := map[int]struct{}{}
 			// Locate the entire line of the matches
 			//
 			// - Move backward from each starting point until finding a newline
@@ -496,6 +500,11 @@ func createMatches(searchResult SearchResult, fullText FullText, defaultBranches
 				end--
 
 				lineno := strings.Count(content[:start], "\n") + 1
+				if _, ok := foundLinenos[lineno]; ok {
+					v("[%d] already processed this line, moving on!", lineno)
+					continue
+				}
+				foundLinenos[lineno] = struct{}{}
 
 				// Check if we need to show any extra lines contextual to the
 				// matching one.
