@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"os"
+	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
@@ -14,16 +16,90 @@ import (
 )
 
 var defaultCfgFile = ".codesearch"
+var token string
+
+func initConfig() {
+	if flags.cfgFile != "" {
+		viper.SetConfigFile(flags.cfgFile)
+		return
+	}
+
+	viper.SetConfigName(defaultCfgFile)
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("$HOME")
+	viper.AddConfigPath(".")
+
+	// Store token in a separate file to make configs less private to open for editing
+	// or sharing
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fatalf("couldn't determine your home directory: %v", err)
+	}
+	viper.SetDefault("token_file", filepath.Join(home, ".codesearch_token"))
+
+	if err := viper.ReadInConfig(); err != nil {
+		setupFlow()
+	}
+
+	migrateToken()
+
+}
+
+// The first few commits put the token as-is into the config. Detect this and
+// move for them.
+func migrateToken() {
+	token_file := viper.GetString("token_file")
+	raw := viper.GetString("token")
+	if raw == "" {
+		// Extract token from file into memory
+		b, err := ioutil.ReadFile(token_file)
+		if err != nil {
+			token = askForToken()
+			err := writeToken(token)
+			if err != nil {
+				fatalf("failed writing to token_file: %v", err)
+			}
+			fmt.Println("Saved")
+			return
+		}
+		token = string(b)
+		return
+	}
+
+	if err := writeToken(raw); err != nil {
+		fatalf(
+			"we've tried to move your token into a separate file but failed - can you help us? (err: %v) (dest: %s)",
+			err, token_file,
+		)
+	}
+	token = raw
+	viper.Set("token", "")
+
+	err := viper.WriteConfig()
+	if err != nil {
+		fatalf("couldn't save config: %v", err)
+	}
+
+	w(
+		"FYI: We've moved your token into %s. Now you can edit or move your config in peace",
+		token_file,
+	)
+}
+
+func writeToken(s string) error {
+	token_file := viper.GetString("token_file")
+	return ioutil.WriteFile(token_file, []byte(s), 0600)
+}
 
 func init() {
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "set-token",
 		Short: "Set a new personal access token to use for talking to GitHub",
 		Run: func(cmd *cobra.Command, args []string) {
-			viper.Set("token", askForToken())
-			err := viper.WriteConfig()
+			token = askForToken()
+			err := writeToken(token)
 			if err != nil {
-				fatalf("couldn't save config: %v", err)
+				fatalf("failed writing to token_file: %v", err)
 			}
 			fmt.Println("Saved")
 		},
@@ -115,22 +191,6 @@ across owners, you can unset it here.
 	})
 }
 
-func initConfig() {
-	if flags.cfgFile != "" {
-		viper.SetConfigFile(flags.cfgFile)
-		return
-	}
-
-	viper.SetConfigName(defaultCfgFile)
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("$HOME")
-	viper.AddConfigPath(".")
-
-	if err := viper.ReadInConfig(); err != nil {
-		setupFlow()
-	}
-}
-
 func listOrgs() ([]string, error) {
 	ctx := context.Background()
 	client := github.NewClient(getAuthenticatedHTTP(ctx))
@@ -146,9 +206,13 @@ func listOrgs() ([]string, error) {
 }
 
 func setupFlow() {
-	viper.Set("token", askForToken())
+	token = askForToken()
+	err := writeToken(token)
+	if err != nil {
+		fatalf("failed writing to token_file: %v", err)
+	}
 
-	err := viper.SafeWriteConfig()
+	err = viper.SafeWriteConfig()
 	if err != nil {
 		fatalf("couldn't save config: %v", err)
 	}

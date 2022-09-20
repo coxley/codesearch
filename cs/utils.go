@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/fatih/color"
-	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 )
 
@@ -31,7 +30,6 @@ func fatalf(format string, a ...any) {
 }
 
 func getAuthenticatedHTTP(ctx context.Context) *http.Client {
-	token := viper.GetString("token")
 	if token == "" {
 		fatalf("please run %s set-token", os.Args[0])
 	}
