@@ -15,13 +15,23 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"text/template"
 	"time"
 
 	"github.com/spf13/viper"
 )
 
-var gqlURL = "https://api.github.com/graphql"
+func gqlURL() string {
+	baseURL, ok := viper.Get("base-url").(string)
+	if !ok || len(baseURL) == 0 {
+		baseURL = defaultBaseURL
+	}
+	if strings.HasSuffix(baseURL, "/") {
+		return baseURL + "graphql"
+	}
+	return baseURL + "/graphql"
+}
 
 type gqlRequest struct {
 	Query     string `json:"query"`
@@ -97,7 +107,7 @@ func getDefaultBranches(client *http.Client, result SearchResult) map[string]str
 		fatalf("failed to create gql request as json: %v", err)
 	}
 
-	resp, err := client.Post(gqlURL, "application/json", bytes.NewReader(gql))
+	resp, err := client.Post(gqlURL(), "application/json", bytes.NewReader(gql))
 	if err != nil {
 		fatalf("gql request to fetch branches failed: %v", err)
 	}
@@ -240,7 +250,7 @@ func getFullText(client *http.Client, result SearchResult, defaultBranches map[s
 		fatalf("failed to create gql request as json: %v", err)
 	}
 
-	resp, err := client.Post(gqlURL, "application/json", bytes.NewReader(gql))
+	resp, err := client.Post(gqlURL(), "application/json", bytes.NewReader(gql))
 	if err != nil {
 		fatalf("gql request to fetch file contents failed: %v", err)
 	}

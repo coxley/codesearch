@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/fatih/color"
+	"github.com/google/go-github/v47/github"
+	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 )
 
@@ -38,4 +40,12 @@ func getAuthenticatedHTTP(ctx context.Context) *http.Client {
 		&oauth2.Token{AccessToken: token},
 	)
 	return oauth2.NewClient(ctx, ts)
+}
+
+func githubClient(ctx context.Context) (*github.Client, error) {
+	baseURL, ok := viper.Get("base-url").(string)
+	if !ok || len(baseURL) == 0 {
+		return github.NewEnterpriseClient(defaultBaseURL, defaultBaseURL, getAuthenticatedHTTP(ctx))
+	}
+	return github.NewEnterpriseClient(baseURL, baseURL, getAuthenticatedHTTP(ctx))
 }

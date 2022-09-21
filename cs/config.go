@@ -10,13 +10,14 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
-	"github.com/google/go-github/v47/github"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var defaultCfgFile = ".codesearch"
 var token string
+
+const defaultBaseURL string = "https://api.github.com/"
 
 func initConfig() {
 	if flags.cfgFile != "" {
@@ -189,11 +190,48 @@ across owners, you can unset it here.
 			fmt.Println("Saved")
 		},
 	})
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "set-base-url",
+		Short: "Set base url of the query endpoint",
+		Long: `
+If you are using Github Enterprise, the deafult github query endpoints wont work.
+		`,
+		Run: func(cmd *cobra.Command, args []string) {
+			var answer string
+			fmt.Print("What base-url name would you like to set?: ")
+			fmt.Scanln(&answer)
+
+			viper.Set("base-url", answer)
+			err := viper.WriteConfig()
+			if err != nil {
+				fatalf("couldn't save config: %v", err)
+			}
+			fmt.Println("Saved")
+		},
+	})
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "unset-base-url",
+		Short: "unset base url",
+		Long: `
+Use the default github api endpoint.
+		`,
+		Run: func(cmd *cobra.Command, args []string) {
+			viper.Set("base-url", "")
+			err := viper.WriteConfig()
+			if err != nil {
+				fatalf("couldn't save config: %v", err)
+			}
+			fmt.Println("Saved")
+		},
+	})
 }
 
 func listOrgs() ([]string, error) {
 	ctx := context.Background()
-	client := github.NewClient(getAuthenticatedHTTP(ctx))
+	client, err := githubClient(ctx)
+	if err != nil {
+		return nil, err
+	}
 	orgs, _, err := client.Organizations.List(ctx, "", nil)
 	if err != nil {
 		return nil, err
@@ -211,6 +249,9 @@ func setupFlow() {
 	if err != nil {
 		fatalf("failed writing to token_file: %v", err)
 	}
+
+	baseURL := askForBaseURL()
+	viper.Set("base-url", baseURL)
 
 	err = viper.SafeWriteConfig()
 	if err != nil {
@@ -250,4 +291,19 @@ selected ones are supplementary.
 	var token string
 	fmt.Scanln(&token)
 	return token
+}
+
+func askForBaseURL() string {
+	color.Blue(`
+	Set your own BaseURL if you are using Github Enterpise. Otherwise leave blank.
+	Default is set to "https://api.github.com/"
+	`)
+
+	fmt.Print("BaseURL: ")
+	var baseURL string
+	fmt.Scanln(&baseURL)
+	if len(baseURL) == 0 {
+		return defaultBaseURL
+	}
+	return baseURL
 }
