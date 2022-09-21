@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
@@ -200,6 +201,9 @@ If you are using Github Enterprise, the deafult github query endpoints wont work
 			var answer string
 			fmt.Print("What base-url name would you like to set?: ")
 			fmt.Scanln(&answer)
+			if !strings.HasSuffix(answer, "/") {
+				answer = answer + "/"
+			}
 
 			viper.Set("base-url", answer)
 			err := viper.WriteConfig()
@@ -295,15 +299,19 @@ selected ones are supplementary.
 
 func askForBaseURL() string {
 	color.Blue(`
-	Set your own BaseURL if you are using Github Enterpise. Otherwise leave blank.
-	Default is set to "https://api.github.com/"
-	`)
+Set your own BaseURL if you are using Github Enterpise. Otherwise leave blank.
+Default is set to %s
+	`, defaultBaseURL)
 
 	fmt.Print("BaseURL: ")
 	var baseURL string
 	fmt.Scanln(&baseURL)
 	if len(baseURL) == 0 {
 		return defaultBaseURL
+	}
+	// the github client enforces a trailing slash for POST calls so lets just enforce here
+	if !strings.HasSuffix(baseURL, "/") {
+		baseURL = baseURL + "/"
 	}
 	return baseURL
 }
