@@ -302,7 +302,7 @@ Not using GitHub Enterprise? Just press enter!
 	var baseURL string
 	fmt.Scanln(&baseURL)
 	if len(baseURL) == 0 {
-		return "https://api.github.com/"
+		return viper.GetString("base_url")
 	}
 	// the github client enforces a trailing slash for POST calls so lets just enforce here
 	if !strings.HasSuffix(baseURL, "/") {
