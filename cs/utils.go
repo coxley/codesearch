@@ -43,9 +43,6 @@ func getAuthenticatedHTTP(ctx context.Context) *http.Client {
 }
 
 func githubClient(ctx context.Context) (*github.Client, error) {
-	baseURL, ok := viper.Get("base-url").(string)
-	if !ok || len(baseURL) == 0 {
-		return github.NewEnterpriseClient(defaultBaseURL, defaultBaseURL, getAuthenticatedHTTP(ctx))
-	}
+	baseURL := viper.Get("base_url").(string)
 	return github.NewEnterpriseClient(baseURL, baseURL, getAuthenticatedHTTP(ctx))
 }

@@ -18,8 +18,6 @@ import (
 var defaultCfgFile = ".codesearch"
 var token string
 
-const defaultBaseURL string = "https://api.github.com/"
-
 func initConfig() {
 	if flags.cfgFile != "" {
 		viper.SetConfigFile(flags.cfgFile)
@@ -38,6 +36,7 @@ func initConfig() {
 		fatalf("couldn't determine your home directory: %v", err)
 	}
 	viper.SetDefault("token_file", filepath.Join(home, ".codesearch_token"))
+	viper.SetDefault("base_url", "https://api.github.com/")
 
 	if err := viper.ReadInConfig(); err != nil {
 		setupFlow()
@@ -193,19 +192,16 @@ across owners, you can unset it here.
 	})
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "set-base-url",
-		Short: "Set base url of the query endpoint",
-		Long: `
-If you are using Github Enterprise, the deafult github query endpoints wont work.
-		`,
+		Short: "Control which GitHub instance you talk to by setting the base URL (eg: GitHub Enterprise)",
 		Run: func(cmd *cobra.Command, args []string) {
 			var answer string
-			fmt.Print("What base-url name would you like to set?: ")
+			fmt.Print("What base_url name would you like to set?: ")
 			fmt.Scanln(&answer)
 			if !strings.HasSuffix(answer, "/") {
 				answer = answer + "/"
 			}
 
-			viper.Set("base-url", answer)
+			viper.Set("base_url", answer)
 			err := viper.WriteConfig()
 			if err != nil {
 				fatalf("couldn't save config: %v", err)
@@ -220,7 +216,7 @@ If you are using Github Enterprise, the deafult github query endpoints wont work
 Use the default github api endpoint.
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
-			viper.Set("base-url", "")
+			viper.Set("base_url", "")
 			err := viper.WriteConfig()
 			if err != nil {
 				fatalf("couldn't save config: %v", err)
@@ -255,7 +251,7 @@ func setupFlow() {
 	}
 
 	baseURL := askForBaseURL()
-	viper.Set("base-url", baseURL)
+	viper.Set("base_url", baseURL)
 
 	err = viper.SafeWriteConfig()
 	if err != nil {
@@ -299,15 +295,14 @@ selected ones are supplementary.
 
 func askForBaseURL() string {
 	color.Blue(`
-Set your own BaseURL if you are using Github Enterpise. Otherwise leave blank.
-Default is set to %s
-	`, defaultBaseURL)
+Not using GitHub Enterprise? Just press enter!
+	`)
 
-	fmt.Print("BaseURL: ")
+	fmt.Print("Base URL [https://api.github.com/]: ")
 	var baseURL string
 	fmt.Scanln(&baseURL)
 	if len(baseURL) == 0 {
-		return defaultBaseURL
+		return "https://api.github.com/"
 	}
 	// the github client enforces a trailing slash for POST calls so lets just enforce here
 	if !strings.HasSuffix(baseURL, "/") {

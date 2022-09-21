@@ -23,10 +23,7 @@ import (
 )
 
 func gqlURL() string {
-	baseURL, ok := viper.Get("base-url").(string)
-	if !ok || len(baseURL) == 0 {
-		baseURL = defaultBaseURL
-	}
+	baseURL := viper.Get("base_url").(string)
 	if strings.HasSuffix(baseURL, "/") {
 		return baseURL + "graphql"
 	}

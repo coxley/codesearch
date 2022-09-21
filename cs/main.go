@@ -106,7 +106,7 @@ func init() {
 
 	rootCmd.Flags().IntVar(&flags.tabWidth, "tabwidth", 2, "number of spaces to display tabs as")
 
-	rootCmd.Flags().StringVar(&flags.baseURL, "base-url", "https://api.github.com/", "base url for api endpoint")
+	rootCmd.Flags().StringVar(&flags.baseURL, "base_url", "https://api.github.com/", "base url for api endpoint")
 
 	// TODO: Unfortunately only cs.github.com has archive term support at the moment
 	// rootCmd.Flags().BoolVarP(&flags.includeArchived, "archived", "a", false, "include results from archived repositories")
@@ -115,7 +115,7 @@ func init() {
 	viper.BindPFlag("format", rootCmd.Flags().Lookup("format"))
 	viper.BindPFlag("tabwidth", rootCmd.Flags().Lookup("tabwidth"))
 	viper.BindPFlag("url", rootCmd.Flags().Lookup("url"))
-	viper.BindPFlag("base-url", rootCmd.Flags().Lookup("base-url"))
+	viper.BindPFlag("base_url", rootCmd.Flags().Lookup("base_url"))
 
 	// TODO: have an interactive option that's just a glorified `less` with the
 	// ability to toggle fully-qualified repo + path + whatever metadata without
