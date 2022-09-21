@@ -68,6 +68,8 @@ var flags = struct {
 	dumpData  bool
 	tabWidth  int
 
+	baseURL string
+
 	// includeArchived bool
 }{}
 
@@ -104,6 +106,8 @@ func init() {
 
 	rootCmd.Flags().IntVar(&flags.tabWidth, "tabwidth", 2, "number of spaces to display tabs as")
 
+	rootCmd.Flags().StringVar(&flags.baseURL, "base-url", "https://api.github.com/", "base url for api endpoint")
+
 	// TODO: Unfortunately only cs.github.com has archive term support at the moment
 	// rootCmd.Flags().BoolVarP(&flags.includeArchived, "archived", "a", false, "include results from archived repositories")
 
@@ -111,6 +115,7 @@ func init() {
 	viper.BindPFlag("format", rootCmd.Flags().Lookup("format"))
 	viper.BindPFlag("tabwidth", rootCmd.Flags().Lookup("tabwidth"))
 	viper.BindPFlag("url", rootCmd.Flags().Lookup("url"))
+	viper.BindPFlag("base-url", rootCmd.Flags().Lookup("base_url"))
 
 	// TODO: have an interactive option that's just a glorified `less` with the
 	// ability to toggle fully-qualified repo + path + whatever metadata without
@@ -302,7 +307,10 @@ func performSearch(ctx context.Context, query string, limit int) ([]*github.Code
 		v("Performing search took %s", time.Since(start))
 	}()
 
-	client := github.NewClient(getAuthenticatedHTTP(ctx))
+	client, err := githubClient(ctx)
+	if err != nil {
+		return nil, err
+	}
 	v("User-Agent: %s", client.UserAgent)
 
 	opts := &github.SearchOptions{TextMatch: true}

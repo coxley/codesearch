@@ -7,10 +7,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
-	"github.com/google/go-github/v47/github"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -36,6 +36,7 @@ func initConfig() {
 		fatalf("couldn't determine your home directory: %v", err)
 	}
 	viper.SetDefault("token_file", filepath.Join(home, ".codesearch_token"))
+	viper.SetDefault("base_url", "https://api.github.com/")
 
 	if err := viper.ReadInConfig(); err != nil {
 		setupFlow()
@@ -189,11 +190,48 @@ across owners, you can unset it here.
 			fmt.Println("Saved")
 		},
 	})
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "set-base-url",
+		Short: "Control which GitHub instance you talk to by setting the base URL (eg: GitHub Enterprise)",
+		Run: func(cmd *cobra.Command, args []string) {
+			var answer string
+			fmt.Print("What base_url name would you like to set?: ")
+			fmt.Scanln(&answer)
+			if !strings.HasSuffix(answer, "/") {
+				answer = answer + "/"
+			}
+
+			viper.Set("base_url", answer)
+			err := viper.WriteConfig()
+			if err != nil {
+				fatalf("couldn't save config: %v", err)
+			}
+			fmt.Println("Saved")
+		},
+	})
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "unset-base-url",
+		Short: "unset base url",
+		Long: `
+Use the default github api endpoint.
+		`,
+		Run: func(cmd *cobra.Command, args []string) {
+			viper.Set("base_url", "")
+			err := viper.WriteConfig()
+			if err != nil {
+				fatalf("couldn't save config: %v", err)
+			}
+			fmt.Println("Saved")
+		},
+	})
 }
 
 func listOrgs() ([]string, error) {
 	ctx := context.Background()
-	client := github.NewClient(getAuthenticatedHTTP(ctx))
+	client, err := githubClient(ctx)
+	if err != nil {
+		return nil, err
+	}
 	orgs, _, err := client.Organizations.List(ctx, "", nil)
 	if err != nil {
 		return nil, err
@@ -211,6 +249,9 @@ func setupFlow() {
 	if err != nil {
 		fatalf("failed writing to token_file: %v", err)
 	}
+
+	baseURL := askForBaseURL()
+	viper.Set("base_url", baseURL)
 
 	err = viper.SafeWriteConfig()
 	if err != nil {
@@ -250,4 +291,22 @@ selected ones are supplementary.
 	var token string
 	fmt.Scanln(&token)
 	return token
+}
+
+func askForBaseURL() string {
+	color.Blue(`
+Not using GitHub Enterprise? Just press enter!
+	`)
+
+	fmt.Print("Base URL [https://api.github.com/]: ")
+	var baseURL string
+	fmt.Scanln(&baseURL)
+	if len(baseURL) == 0 {
+		return viper.GetString("base_url")
+	}
+	// the github client enforces a trailing slash for POST calls so lets just enforce here
+	if !strings.HasSuffix(baseURL, "/") {
+		baseURL = baseURL + "/"
+	}
+	return baseURL
 }
