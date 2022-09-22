@@ -159,12 +159,15 @@ If you prefer a more retro style, `--greppable/-G` has you covered.
 
 ```
 > cs -r codesearch viper -u --limit 5 -G
-$url:   "github.com/spf13/viper"
-$url:     viper.SetConfigFile(flags.cfgFile)
-$url:   viper.SetConfigName(defaultCfgFile)
-$url:   github.com/spf13/viper v1.13.0
-$url:   "github.com/spf13/viper"
-$url:   baseURL := viper.Get("base_url").(string)
+https://github.com/coxley/codesearch/blob/master/README.md#L63: > ./cs viper.WriteConfig
+https://github.com/coxley/codesearch/blob/master/README.md#L110: > cs -r codesearch viper
+https://github.com/coxley/codesearch/blob/master/README.md#L112: 15:   "github.com/spf13/viper"
+https://github.com/coxley/codesearch/blob/master/README.md#L113: 25:     viper.SetConfigFile(flags.cfgFile)
+https://github.com/coxley/codesearch/blob/master/cs/config.go#L15:   "github.com/spf13/viper"
+https://github.com/coxley/codesearch/blob/master/cs/config.go#L25:     viper.SetConfigFile(flags.cfgFile)
+https://github.com/coxley/codesearch/blob/master/cs/config.go#L29:   viper.SetConfigName(defaultCfgFile)
+https://github.com/coxley/codesearch/blob/master/cs/main.go#L24:   "github.com/spf13/viper"
+
 ```
 
 **Context**:

@@ -188,7 +188,7 @@ func execute(cmd *cobra.Command, args []string) {
 	header := "$repo:$path ($branch)"
 	line := "$lineno: $text"
 	if flags.urlPrefix {
-		gstr = "$url: $text"
+		gstr = "$url_line: $text"
 		header = "$url_file ($branch)"
 	}
 
