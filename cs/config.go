@@ -15,8 +15,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-var defaultCfgFile = ".codesearch"
-var token string
+var (
+	defaultCfgFile = ".codesearch"
+	token          string
+)
 
 func initConfig() {
 	if flags.cfgFile != "" {
@@ -43,7 +45,6 @@ func initConfig() {
 	}
 
 	migrateToken()
-
 }
 
 // The first few commits put the token as-is into the config. Detect this and
@@ -89,7 +90,7 @@ func migrateToken() {
 
 func writeToken(s string) error {
 	token_file := viper.GetString("token_file")
-	return ioutil.WriteFile(token_file, []byte(s), 0600)
+	return ioutil.WriteFile(token_file, []byte(s), 0o600)
 }
 
 func init() {
@@ -103,6 +104,23 @@ func init() {
 				fatalf("failed writing to token_file: %v", err)
 			}
 			fmt.Println("Saved")
+		},
+	})
+
+	rootCmd.AddCommand(&cobra.Command{
+		Use: "disable-ansi-urls",
+		Long: `
+Most terminals support ANSI hyperlinks or displaying only the text. Run this command
+if your terminal is an outlier
+		`,
+		Run: func(cmd *cobra.Command, args []string) {
+			viper.Set("disable_ansi_url", "true")
+			err := viper.WriteConfig()
+			if err != nil {
+				fatalf("couldn't save config: %v", err)
+			}
+			fmt.Println("Saved")
+			return
 		},
 	})
 

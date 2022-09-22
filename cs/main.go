@@ -4,6 +4,7 @@
 // - Coerce results into our own minimal structure
 // - Look up default branch names for every returned repo
 //   - This costs ~300-500ms so you can skip this step with 'set-default-branch'
+//
 // - Fetch file contents for every returned Path
 // - Overlay colorized text matches onto the contents
 // - Write each line to stdout
@@ -28,14 +29,14 @@ var rootCmd = &cobra.Command{
 	Use:   "cs [terms] [flags]",
 	Short: "Codesearch wraps the GitHub API to be closer to grep/ag/etc semantics",
 	Long: `
-Codesearch wraps the GitHub API to be closer to grep/ag/et al semantics
+	Codesearch wraps the GitHub API to be closer to grep/ag/et al semantics
 
-Positional args are merged into a single string and used as the search term. Refer to
-GitHub's documentation for nuances: https://docs.github.com/en/search-github/searching-on-github/searching-code
+	Positional args are merged into a single string and used as the search term. Refer to
+	GitHub's documentation for nuances: https://docs.github.com/en/search-github/searching-on-github/searching-code
 
-While we've done our best, GitHub can be harsh with ratelimiting. If your org
-has consistent branch names, consider running 'cs set-default-branch' to
-alleviate some pressure.
+	While we've done our best, GitHub can be harsh with ratelimiting. If your org
+	has consistent branch names, consider running 'cs set-default-branch' to
+	alleviate some pressure.
 	`,
 	Run:  execute,
 	Args: cobra.MinimumNArgs(1),
@@ -54,13 +55,13 @@ var flags = struct {
 	before        int
 	context       int
 	count         bool
-	printURLs     bool
 	onlyFiles     bool
 	onlyRepos     bool
 	onlyFullNames bool
-
-	contentOnly bool
-	formatStr   string
+	contentOnly   bool
+	urlPrefix     bool
+	greppable     bool
+	forceColor    bool
 
 	cfgFile   string
 	verbose   bool
@@ -90,26 +91,22 @@ func init() {
 	rootCmd.Flags().IntVarP(&flags.context, "context", "C", 0, "print [num] lines of context before and after each match")
 	rootCmd.Flags().BoolVarP(&flags.count, "count", "c", false, "print only a count of matches")
 
-	rootCmd.Flags().BoolVarP(&flags.printURLs, "url", "u", false, "print URLs to the selected line as the prefix before text")
 	rootCmd.Flags().BoolVarP(&flags.onlyFiles, "files-only", "l", false, "print only filenames of matches to stdout")
 	rootCmd.Flags().BoolVar(&flags.onlyRepos, "repos-only", false, "print only repository names containing matches to stdout")
 	rootCmd.Flags().BoolVar(&flags.onlyFullNames, "full-names-only", false, "print only fully-qualified repo names to stdout (your/repo path/to/README.md)")
+	rootCmd.Flags().BoolVar(&flags.contentOnly, "content", false, "print only the text results, nothing else")
+	rootCmd.Flags().BoolVarP(&flags.urlPrefix, "url-prefix", "u", false, "print urls instead of repo:file/path")
+	rootCmd.Flags().BoolVarP(&flags.greppable, "greppable", "G", false, "print each match with its filename on the same line")
+	rootCmd.Flags().BoolVar(&flags.forceColor, "force-color", false, "print ANSI sequences even if input or output aren't standard streams")
 
 	rootCmd.Flags().StringVar(&flags.cfgFile, "config", "", "overrides location of the config file")
 	rootCmd.Flags().BoolVarP(&flags.verbose, "verbose", "v", false, "prints verbose messages to stderr for debugging")
 	rootCmd.Flags().BoolVarP(&flags.showQuery, "show-query", "q", false, "show the search terms we would send to GitHub and exit")
 	rootCmd.Flags().BoolVar(&flags.dumpData, "dump", false, "dump result structures to stdout")
 
-	defaultFmt := "$repo_path:$lineno: $text"
-	rootCmd.Flags().StringVar(&flags.formatStr, "format", defaultFmt, "custom format string (variables: $owner, $repo_name, $repo_path, $path, $lineno, $colno, $text, $url)")
-	rootCmd.Flags().BoolVar(&flags.contentOnly, "content", false, "print only the text results, nothing else")
-
 	rootCmd.Flags().IntVar(&flags.tabWidth, "tabwidth", 2, "number of spaces to display tabs as")
 
 	rootCmd.Flags().StringVar(&flags.baseURL, "base-url", "https://api.github.com/", "base url for api endpoint")
-
-	// TODO: Unfortunately only cs.github.com has archive term support at the moment
-	// rootCmd.Flags().BoolVarP(&flags.includeArchived, "archived", "a", false, "include results from archived repositories")
 
 	viper.BindPFlag("org", rootCmd.Flags().Lookup("org"))
 	viper.BindPFlag("format", rootCmd.Flags().Lookup("format"))
@@ -119,12 +116,10 @@ func init() {
 
 	// TODO: have an interactive option that's just a glorified `less` with the
 	// ability to toggle fully-qualified repo + path + whatever metadata without
-	// re-issuing the query.
+	// re-issuing the query.?
 	//
 	// Even --context could be done since we do that in-memory vs. in-search.
-
-	// TODO: Common filters like these?
-	// - user: stars: extension: repo: size: path: filename:?
+	// That or minute-long local cache in a file.
 }
 
 func main() {
@@ -135,7 +130,10 @@ func main() {
 }
 
 func execute(cmd *cobra.Command, args []string) {
-	ctx := context.Background()
+	if flags.forceColor {
+		color.NoColor = false
+	}
+	ctx := cmd.Context()
 	query := makeQuery(args)
 	if flags.showQuery {
 		fmt.Println(query)
@@ -183,35 +181,34 @@ func execute(cmd *cobra.Command, args []string) {
 	}
 
 	matches := createMatches(searchResult, fullText, defaultBranches)
+
+	gstr := "$repo:$path:$lineno: $text"
+	header := "$repo:$path ($branch)"
+	line := "$lineno: $text"
+	if flags.urlPrefix {
+		gstr = "$url: $text"
+		header = "$url_file ($branch)"
+	}
+
+	// Depends on match being properly sorted by file => match
+	var prevFile string
 	for _, m := range matches {
-		if flags.contentOnly {
-			fmt.Println(m.text)
+
+		p := printer{m}
+		if flags.greppable {
+			fmt.Println(p.fmt(gstr))
 			continue
 		}
 
-		if flags.printURLs {
-			fmt.Print(color.BlueString(m.url()))
-			fmt.Print(":")
-			fmt.Println(m.text)
-			continue
+		// Put blank lines between files unless it's the first one
+		if m.path != prevFile && prevFile != "" {
+			fmt.Println()
 		}
-
-		out := flags.formatStr
-
-		// TODO: Probably not ideal having default colors but unsure how to do
-		// it without it being overwieldly atm.
-		out = strings.ReplaceAll(out, "$owner", m.owner)
-		out = strings.ReplaceAll(out, "$repo_name", m.repo)
-		out = strings.ReplaceAll(out, "$repo_path", fmt.Sprint(
-			color.New(color.FgBlue).Sprint(m.repo),
-			color.BlueString("/"+m.path),
-		))
-		out = strings.ReplaceAll(out, "$path", color.BlueString(m.path))
-		out = strings.ReplaceAll(out, "$lineno", color.GreenString(fmt.Sprint(m.lineno)))
-		out = strings.ReplaceAll(out, "$colno", color.GreenString(fmt.Sprint(m.colno)))
-		out = strings.ReplaceAll(out, "$text", m.text)
-		out = strings.ReplaceAll(out, "$url", color.BlueString(m.url()))
-		fmt.Println(out)
+		if m.path != prevFile {
+			fmt.Println(p.fmt(header))
+		}
+		fmt.Println(p.fmt(line))
+		prevFile = m.path
 	}
 }
 
@@ -223,6 +220,12 @@ type FileKey struct {
 
 func (f *FileKey) String() string {
 	return fmt.Sprintf("%s/%s %s", f.Owner, f.Name, f.Path)
+}
+
+// This is different from final colorizing inside 'printer'. Use this for things
+// that short-circuit the full program. (--files-only, --repos-only, etc)
+func (f *FileKey) ColorString() string {
+	return color.New(color.FgMagenta).Sprintf("%s/%s %s", f.Owner, f.Name, color.BlueString(f.Path))
 }
 
 func (f *FileKey) RepoString() string {
@@ -364,6 +367,56 @@ func indexAllByte(s string, c byte) []int {
 	return indices
 }
 
+// printer copies the format of ripgrep
+//
+// https://github.com/BurntSushi/ripgrep/blob/9f924ee187d4c62aa6ebe4903d0cfc6507a5adb5/crates/printer/src/color.rs#L14-L24
+type printer struct {
+	match
+}
+
+func (p *printer) fmt(s string) string {
+	s = strings.ReplaceAll(s, "$repo", p.get("repo"))
+	s = strings.ReplaceAll(s, "$branch", p.get("branch"))
+	s = strings.ReplaceAll(s, "$path", p.get("path"))
+	s = strings.ReplaceAll(s, "$url_line", p.get("url_line"))
+	s = strings.ReplaceAll(s, "$url_file", p.get("url_file"))
+	s = strings.ReplaceAll(s, "$lineno", p.get("lineno"))
+	s = strings.ReplaceAll(s, "$colno", p.get("colno"))
+	s = strings.ReplaceAll(s, "$text", p.get("text"))
+	return s
+}
+
+func (p *printer) get(field string) string {
+	switch field {
+	case "repo":
+		return color.New(color.FgBlue).Sprint(ansiURL(p.repoString(), p.repoURL()))
+	case "branch":
+		return color.New(color.FgCyan).Sprint(p.branch)
+	case "path":
+		return color.New(color.FgBlue).Sprint(ansiURL(p.path, p.fileURL()))
+	case "url_line":
+		return color.New(color.FgBlue).Sprint(p.lineURL())
+	case "url_file":
+		return color.New(color.FgBlue).Sprint(p.lineURL())
+	case "lineno":
+		return color.New(color.FgGreen).Sprint(ansiURL(fmt.Sprint(p.lineno), p.lineURL()))
+	case "colno":
+		return color.New(color.FgGreen).Sprint(p.colno)
+	case "text":
+		return p.text
+	default:
+		panic(fmt.Errorf("unsure how to print %s", field))
+	}
+}
+
+func ansiURL(s string, url string) string {
+	// NO_COLOR typically means no ANSI
+	if color.NoColor || viper.GetBool("disable_ansi_url") {
+		return s
+	}
+	return fmt.Sprintf("\033]8;;%s\033\\%s\033]8;;\033\\", url, s)
+}
+
 // match corresponds to one line written to the terminal
 type match struct {
 	owner  string
@@ -380,7 +433,7 @@ func (m *match) repoString() string {
 	return fmt.Sprintf("%s/%s", m.owner, m.repo)
 }
 
-func (m *match) url() string {
+func (m *match) lineURL() string {
 	return fmt.Sprintf(
 		"https://github.com/%s/blob/%s/%s#L%d",
 		m.repoString(),
@@ -388,6 +441,19 @@ func (m *match) url() string {
 		m.path,
 		m.lineno,
 	)
+}
+
+func (m *match) fileURL() string {
+	return fmt.Sprintf(
+		"https://github.com/%s/blob/%s/%s",
+		m.repoString(),
+		m.branch,
+		m.path,
+	)
+}
+
+func (m *match) repoURL() string {
+	return fmt.Sprintf("https://github.com/%s", m.repoString())
 }
 
 type FileKeys []FileKey
@@ -449,6 +515,11 @@ func createMatches(searchResult SearchResult, fullText FullText, defaultBranches
 			startPositions := []int{}
 
 			// Colorize matches in the full text
+			//
+			// TODO: After committing this, I think it's a bad idea. We can
+			// ship the 2d slice of content-adjusted indexes back with each
+			// match. Then all the color formatting is left in one place:
+			// inside printer.
 			var ansiOverhead int
 			for _, indices := range tm.Indices {
 				// Translate match indices in fragment to in full-text This
@@ -459,7 +530,7 @@ func createMatches(searchResult SearchResult, fullText FullText, defaultBranches
 				j += fragIdx + ansiOverhead
 				startPositions = append(startPositions, i)
 
-				highlight := color.RedString(content[i:j])
+				highlight := color.New(color.FgRed, color.Bold).Sprint(content[i:j])
 				content = content[:i] + highlight + content[j:]
 
 				// Account for byte overhead as we're adding ANSI sequences
@@ -614,22 +685,42 @@ func printFiles(r SearchResult) {
 	for key := range r {
 		fmt.Println(key.Path)
 	}
+	seen := map[string]struct{}{}
+	for key := range r {
+		// We _could_ print this with ansiURL but that'd require us knowing the
+		// default branch of the repo. This requires another network round-trip
+		// which we only need to do for full output.
+		//
+		// Feels wrong to force --files-only to pay that penalty.
+		s := key.Path
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		fmt.Println(color.BlueString(s))
+		seen[s] = struct{}{}
+	}
 }
 
 func printFullNames(r SearchResult) {
+	seen := map[string]struct{}{}
 	for key := range r {
-		fmt.Println(key.String())
+		s := key.ColorString()
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		fmt.Println(s)
+		seen[s] = struct{}{}
 	}
 }
 
 func printRepos(r SearchResult) {
 	seen := map[string]struct{}{}
 	for key := range r {
-		s := key.RepoString()
+		s := ansiURL(key.RepoString(), makeGithubSiteURL(key.RepoString()))
 		if _, ok := seen[s]; ok {
 			continue
 		}
-		fmt.Println(s)
+		fmt.Println(color.MagentaString(s))
 		seen[s] = struct{}{}
 	}
 }

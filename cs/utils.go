@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/google/go-github/v47/github"
@@ -43,6 +45,16 @@ func getAuthenticatedHTTP(ctx context.Context) *http.Client {
 }
 
 func githubClient(ctx context.Context) (*github.Client, error) {
-	baseURL := viper.Get("base_url").(string)
+	baseURL := viper.GetString("base_url")
 	return github.NewEnterpriseClient(baseURL, baseURL, getAuthenticatedHTTP(ctx))
+}
+
+// Create non-API links (repos, files)
+func makeGithubSiteURL(path string) string {
+	// Github Enterprise uses /api whereas GHC uses a sub-domain. We want the
+	// base site.
+	u, _ := url.Parse(viper.GetString("base_url"))
+	u.Host = strings.Replace(u.Host, "api.", "", 1)
+	u.Path = path
+	return u.String()
 }
