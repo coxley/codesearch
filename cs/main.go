@@ -682,9 +682,6 @@ func contextLines(content string, lineno, before, after int) (leading, trailing 
 }
 
 func printFiles(r SearchResult) {
-	for key := range r {
-		fmt.Println(key.Path)
-	}
 	seen := map[string]struct{}{}
 	for key := range r {
 		// We _could_ print this with ansiURL but that'd require us knowing the
