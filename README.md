@@ -15,7 +15,7 @@ to make everything clickable. Line numbers take you directly to the file with
 it highlighted and file names to the file. We're not quite sure where
 repository names take you yet but you can find out!
 
-.[](./demo.gif)
+[](./demo.gif)
 
 # Install
 
