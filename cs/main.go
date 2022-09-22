@@ -45,6 +45,7 @@ var rootCmd = &cobra.Command{
 // Defaults should be filled in by pflags vs. zero-values
 var flags = struct {
 	org      string
+	repo     string
 	lang     string
 	filename string
 	path     string
@@ -81,6 +82,7 @@ func init() {
 	rootCmd.Flags().IntVar(&flags.limit, "limit", 30, "limit the number of matches queried and displayed")
 
 	rootCmd.Flags().StringVarP(&flags.org, "org", "o", "", "scope search with a single organization:[org]")
+	rootCmd.Flags().StringVarP(&flags.repo, "repo", "r", "", "scope search to the given repo, filling in [org] for you if configured")
 	rootCmd.Flags().StringVar(&flags.lang, "lang", "", "scope search with a single language:[lang]")
 	rootCmd.Flags().StringVarP(&flags.filename, "filename", "f", "", "scope search by filename")
 	rootCmd.Flags().StringVarP(&flags.path, "path", "p", "", "scope search by the path files are in")
@@ -283,6 +285,12 @@ func makeQuery(args []string) string {
 	org := viper.GetString("org")
 	if org != "" {
 		query += "org:" + org + " "
+	}
+
+	if flags.repo != "" && org != "" && !strings.Contains(flags.repo, "/") {
+		query += "repo:" + org + "/" + flags.repo + " "
+	} else if flags.repo != "" {
+		query += "repo:" + flags.repo + " "
 	}
 
 	if lang := flags.lang; lang != "" {
