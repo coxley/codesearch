@@ -268,9 +268,6 @@ func setupFlow() {
 		fatalf("failed writing to token_file: %v", err)
 	}
 
-	baseURL := askForBaseURL()
-	viper.Set("base_url", baseURL)
-
 	err = viper.SafeWriteConfig()
 	if err != nil {
 		fatalf("couldn't save config: %v", err)
@@ -287,22 +284,28 @@ func setupFlow() {
 }
 
 func askForToken() string {
-	u, _ := url.Parse("https://github.com/settings/tokens/new")
+	color.Blue("Welcome to codesearch!")
+	fmt.Println()
+	baseURL := askForBaseURL()
+	viper.Set("base_url", baseURL)
+
+	u, err := url.Parse(makeGithubSiteURL("/settings/tokens/new"))
+	if err != nil {
+		fatalf("failed making the token URL: %v", err)
+	}
 	q := u.Query()
 	q.Add("description", "Codesearch")
 	q.Add("scopes", "repo,read:user,read:org")
 	u.RawQuery = q.Encode()
 
 	color.Blue(`
-Welcome to codesearch!
-
 You'll need a GitHub personal token for this to work. Head
 on over to create one: %s`, color.YellowString(u.String()))
 
 	color.Blue(`
-Set any expiry you want - it stays on your machine. Just
-make sure to give it 'repo' scope at minimum. The other
-selected ones are supplementary.
+Set any expiry you want - it stays on your machine. Just make sure to give it
+'repo' scope at minimum. The other two are supplementary but make everything
+smooth.
 	`)
 
 	fmt.Print("Paste token here: ")
@@ -312,9 +315,7 @@ selected ones are supplementary.
 }
 
 func askForBaseURL() string {
-	color.Blue(`
-Not using GitHub Enterprise? Just press enter!
-	`)
+	color.Blue("Not using GitHub Enterprise? Just press enter!")
 
 	fmt.Print("Base URL [https://api.github.com/]: ")
 	var baseURL string
