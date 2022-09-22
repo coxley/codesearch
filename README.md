@@ -2,83 +2,80 @@
 
 GitHub search needs a lot of work.
 
-Ultimately, I want a command-line program with grep-like semantics. I want code
-search to be fluid. Iterative. And most interfaces built for web won't enable that.
+Ultimately, you want a command-line with grep-like semantics. It should be
+fluid, iterative. Maybe even impress your co-workers.
 
-There are a handful of tools I was spoiled by @facebook and `BigGrep` was one
-of them. `cs` usage is modeled after what I remember about it. It wraps around
-GitHub's REST and GraphQL APIs. One to get a collection of ranked results, the
-other to get file contents for stuff like `--context`.
+Codesearch is simple: `cs [term]`. It shows you the information you need
+without much more. There are two output modes: the default is similar to
+`ripgrep` and `-G` gets you `grep`.
 
-There are some quirks. We have a default `--limit` of 30. You can increase but
-anything above 100 incurs round-trips to GitHub. Rapid fire queries can
-sometimes get rate-limite for ~30s. But overall it works fairly well.
+On top of that, we use the [ANSI Hyperlink
+Sequence](https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda#the-escape-sequence)
+to make everything clickable. Line numbers take you directly to the file with
+it highlighted and file names to the file. We're not quite sure where
+repository names take you yet but you can find out!
 
-Don't hesitate to give feedback if you've got it. :)
+# Install
 
-![](./demo.gif)
+```
+go install github.com/coxley/codesearch/cs@latest
+
+# or with a version like...
+# go install github.com/coxley/codesearch/cs@v1.0.1
+```
+
+# Motivation
+
+There were a handful of tools I was spoiled by when I worked at Facebook.
+`BigGrep` was one of them.
+
+`cs` is modeled after it's experience. It wraps
+around GitHub's REST and GraphQL APIs. One to get a collection of ranked
+results, the other to get file contents for stuff like `--context`, `--before`,
+and `--after`.
+
+Just enough color is used to find what you need without being over-bearing.
+We're not trying to boil the ocean. We just want to find things.
 
 # What about Sourcegraph? LiveGrep?
 
 Listen, I'm barely navigating the sea of SaaS as it is. My company doesn't have
 it and this only cost booze and a weekend.
 
-# Install
+In all seriousness, I've heard rad things about Sourcegraph. There might even
+be opportunity to support it as an alternative backend in `cs`. But you should
+be able to enjoy comfortabl search without it.
+
+# Usage
+
+**Setup**:
+
+You should get a setup prompt the first time you run `cs`. If you get bored and
+miss it, just delete `~/.codesearch.yaml` and go at it again.
+
+Note: If you're using GitHub Enterprise, the Base URL will be
+`https://[domain]/`. We'll take care of adding the api-specific details.
+
 
 ```
-> go install github.com/coxley/codesearch/cs@latest
+> ./cs viper.WriteConfig
+Welcome to codesearch!
 
-# Have fun!
-> cs --help
+Not using GitHub Enterprise? Just press enter!
+Base URL [https://api.github.com/]:
 
-Codesearch wraps the GitHub API to be closer to grep/ag/et al semantics
+You'll need a GitHub personal token for this to work. Head
+on over to create one: https://github.com/settings/tokens/new?description=Codesearch&scopes=repo%2Cread%3Auser%2Cread%3Aorg
 
-Positional args are merged into a single string and used as the search term. Refer to
-GitHub's documentation for nuances: https://docs.github.com/en/search-github/searching-on-github/searching-code
+Set any expiry you want - it stays on your machine. Just make sure to give it
+'repo' scope at minimum. The other two are supplementary but make everything
+smooth.
 
-While we've done our best, GitHub can be harsh with ratelimiting. If your org
-has consistent branch names, consider running 'cs set-default-branch' to
-alleviate some pressure.
+Paste token here: nicetry
 
-Usage:
-  cs [terms] [flags]
-  cs [command]
-
-Available Commands:
-  help                 Help about any command
-  set-default-branch   Set default branch name to use when fetching file contents
-  set-org              Scope all searches to be within a GitHub organization
-  set-token            Set a new personal access token to use for talking to GitHub
-  unset-default-branch Revert to default behavior of querying GitHub for precise branch names
-
-Flags:
-  -A, --after-context int    print [num] lines of trailing context after each match
-  -B, --before-context int   print [num] lines of leading context before each match
-      --config string        overrides location of the config file
-      --content              print only the text results, nothing else
-  -C, --context int          print [num] lines of context before and after each match
-  -c, --count                print only a count of matches
-      --dump                 dump result structures to stdout
-  -x, --ext string           scope search by file extension
-  -f, --filename string      scope search by filename
-  -l, --files-only           print only filenames of matches to stdout
-      --format string        custom format string (variables: $owner, $repo_name, $repo_path, $path, $lineno, $colno, $text, $url) (default "$repo_path:$lineno: $text")
-      --full-names-only      print only fully-qualified repo names to stdout (your/repo path/to/README.md)
-  -h, --help                 help for cs
-      --lang string          scope search with a single language:[lang]
-      --limit int            limit the number of matches queried and displayed (default 30)
-  -o, --org string           scope search with a single organization:[org]
-  -p, --path string          scope search by the path files are in
-      --repos-only           print only repository names containing matches to stdout
-  -q, --show-query           show the search terms we would send to GitHub and exit
-      --tabwidth int         number of spaces to display tabs as (default 2)
-  -u, --url                  print URLs to the selected line as the prefix before text
-  -v, --verbose              prints verbose messages to stderr for debugging
-
-Use "cs [command] --help" for more information about a command.
+Awesome! You can run ./cs set-org if you'd like
+to scope searches to a specific organization.
 ```
-
-# Tips & Tricks
 
 **Set a default org**:
 
@@ -86,81 +83,107 @@ While `cs` works for anything on Github, it's best use-case is within a company
 / team / whatever-structure hosting their projects here. That... and you're
 likely to find the results you want before being rate-limited this way.
 
-You can change it at any time - even between invocations with `--org/-o`!
+It's easy to change on the fly so don't feel committed.
 
 ```
 # cs set-org [name] works too
 > cs set-org
-? Which one?  [Use arrows to move, type to filter]
+? Which one?  [Use arrows to move, type to filter]gt
   trigger
 > TriggerMail
   (enter manually)
 ```
 
-**URLs**:
+**Searching**:
 
-Directly click into a highlighted line or email it to a friend.
+Your first search - exciting! If you're using a modern terminal, try clicking
+on the line numbers, filenames, and repositories.
 
 ```
-> cs fmt.Fprintf --lang go --url
-https://github.com/facebook/time/blob/main/cmd/pshark/main.go#L210:    fmt.Fprintf(flag.CommandLine.Output(), "pshark: PTP-specific poor man's tshark. Dumps PTPv2 packets parsed from capture file to stdout.\nUsage:\n")
-https://github.com/facebook/time/blob/main/cmd/pshark/main.go#L210:    fmt.Fprintf(flag.CommandLine.Output(), "pshark: PTP-specific poor man's tshark. Dumps PTPv2 packets parsed from capture file to stdout.\nUsage:\n")
-https://github.com/facebook/time/blob/main/cmd/pshark/main.go#L211:    fmt.Fprintf(flag.CommandLine.Output(), "%s [file]\n", os.Args[0])
-https://github.com/facebook/time/blob/main/cmd/pshark/main.go#L211:    fmt.Fprintf(flag.CommandLine.Output(), "%s [file]\n", os.Args[0])
-https://github.com/facebook/time/blob/main/cmd/ptpcheck/cmd/trace.go#L56:  fmt.Fprintf(w, "N\t")
-https://github.com/facebook/time/blob/main/cmd/ptpcheck/cmd/trace.go#L56:  fmt.Fprintf(w, "N\t")
-https://github.com/facebook/time/blob/main/cmd/ptpcheck/cmd/trace.go#L58:    fmt.Fprintf(w, "%d \t", i)
-https://github.com/facebook/time/blob/main/cmd/ptpcheck/cmd/trace.go#L58:    fmt.Fprintf(w, "%d \t", i)
-https://github.com/facebook/time/blob/main/cmd/ptpcheck/cmd/trace.go#L61:  fmt.Fprintf(w, "delay\t")
-https://github.com/facebook/time/blob/main/cmd/ptpcheck/cmd/trace.go#L61:  fmt.Fprintf(w, "delay\t")
+> cs set-org coxley
+Saved
+
+# While GitHub requires "owner/repo" for the repo filter, we fix that for you
+# if org is set. (regardless of config or --org)
+> cs -r codesearch viper
+coxley/codesearch:cs/config.go (master)
+15:   "github.com/spf13/viper"
+25:     viper.SetConfigFile(flags.cfgFile)
+29:   viper.SetConfigName(defaultCfgFile)
+
+coxley/codesearch:cs/go.mod (master)
+10:   github.com/spf13/viper v1.13.0
+
+coxley/codesearch:cs/go.sum (master)
+194: github.com/spf13/viper v1.13.0 h1:BWSJ/M+f+3nmdz9bxB+bWX28kkALN2ok11D0rSo8EJU=
+195: github.com/spf13/viper v1.13.0/go.mod h1:Icm2xNL3/8uyh/wFuB1jI7TiTNKp8632Nwegu+zgdYw=
+
+coxley/codesearch:cs/gql.go (master)
+22:   "github.com/spf13/viper"
+26:   baseURL := viper.Get("base_url").(string)
+
+coxley/codesearch:cs/main.go (master)
+24:   "github.com/spf13/viper"
+113:   viper.BindPFlag("org", rootCmd.Flags().Lookup("org"))
+114:   viper.BindPFlag("format", rootCmd.Flags().Lookup("format"))
+
+coxley/codesearch:cs/utils.go (master)
+13:   "github.com/spf13/viper"
+48:   baseURL := viper.GetString("base_url")
+```
+
+**URLs**:
+
+Sometimes you want the URLs in your face. Use `--url-prefix/-u` for those occassions.
+
+```
+> cs -r codesearch viper -u --limit 5
+https://github.com/coxley/codesearch/blob/master/cs/config.go#L15 (master)
+15:   "github.com/spf13/viper"
+25:     viper.SetConfigFile(flags.cfgFile)
+29:   viper.SetConfigName(defaultCfgFile)
+
+https://github.com/coxley/codesearch/blob/master/cs/go.mod#L10 (master)
+10:   github.com/spf13/viper v1.13.0
+
+https://github.com/coxley/codesearch/blob/master/cs/gql.go#L22 (master)
+22:   "github.com/spf13/viper"
+26:   baseURL := viper.Get("base_url").(string)
+```
+
+**Greppable**:
+
+If you prefer a more retro style, `--greppable/-G` has you covered.
+
+```
+> cs -r codesearch viper -u --limit 5 -G
+$url:   "github.com/spf13/viper"
+$url:     viper.SetConfigFile(flags.cfgFile)
+$url:   viper.SetConfigName(defaultCfgFile)
+$url:   github.com/spf13/viper v1.13.0
+$url:   "github.com/spf13/viper"
+$url:   baseURL := viper.Get("base_url").(string)
 ```
 
 **Context**:
 
-Like grep and siblings, `cs` supports contextual line flags. Leading, trailing,
+Like grep, ripgrep, and similar, `cs` supports contextual line flags. Leading, trailing,
 and surrounding, oh my!
 
 ```
+> cs -r codesearch StaticTokenSource -A2
+coxley/codesearch:cs/utils.go (master)
+41:   ts := oauth2.StaticTokenSource(
+42:     &oauth2.Token{AccessToken: token},
+43:   )
+```
 
-> cs user:coxley 'switch key.Key' -A 39
-rtprompt/rtprompt.go:175:     switch key.Rune {
-rtprompt/rtprompt.go:176:     case 'b':
-rtprompt/rtprompt.go:177:       // back a word
-rtprompt/rtprompt.go:178:       p.cursorLeft(p.pos - p.lastWordIndex() - 1)
-rtprompt/rtprompt.go:179:     case 'f':
-rtprompt/rtprompt.go:180:       // forward a word
-rtprompt/rtprompt.go:181:       p.print(fmt.Sprintf("next word: %d", p.nextWordIndex()), 4)
-rtprompt/rtprompt.go:182:       p.cursorRight(p.nextWordIndex() - p.pos + 1)
-rtprompt/rtprompt.go:183:     }
-rtprompt/rtprompt.go:184:   case keyboard.KeyArrowLeft, keyboard.KeyCtrlB:
-rtprompt/rtprompt.go:185:     p.cursorLeft(1)
-rtprompt/rtprompt.go:186:   case keyboard.KeyArrowRight, keyboard.KeyCtrlF:
-rtprompt/rtprompt.go:187:     p.cursorRight(1)
-rtprompt/rtprompt.go:188:   case keyboard.KeyBackspace, keyboard.KeyBackspace2:
-rtprompt/rtprompt.go:189:     p.backspace(1)
-rtprompt/rtprompt.go:190:   case keyboard.KeyDelete, keyboard.KeyCtrlD:
-rtprompt/rtprompt.go:191:     p.del(1)
-rtprompt/rtprompt.go:192:   case keyboard.KeyCtrlA, keyboard.KeyHome:
-rtprompt/rtprompt.go:193:     // Beginning of line
-rtprompt/rtprompt.go:194:     p.cursorLeft(p.pos)
-rtprompt/rtprompt.go:195:   case keyboard.KeyCtrlE, keyboard.KeyEnd:
-rtprompt/rtprompt.go:196:     // End of line
-rtprompt/rtprompt.go:197:     p.cursorRight(len(p.text) - p.pos)
-rtprompt/rtprompt.go:198:   case keyboard.KeyCtrlU:
-rtprompt/rtprompt.go:199:     // Remove text before cursor
-rtprompt/rtprompt.go:200:     p.backspace(p.pos)
-rtprompt/rtprompt.go:201:   case keyboard.KeyCtrlK:
-rtprompt/rtprompt.go:202:     // Remove text from cursor to EOL
-rtprompt/rtprompt.go:203:     p.del(len(p.text) - p.pos)
-rtprompt/rtprompt.go:204:   case keyboard.KeyCtrlW:
-rtprompt/rtprompt.go:205:     p.backspace(p.pos - p.lastWordIndex() - 1)
-rtprompt/rtprompt.go:206:   case keyboard.KeySpace:
-rtprompt/rtprompt.go:207:     p.advance(" ")
-rtprompt/rtprompt.go:208:   default:
-rtprompt/rtprompt.go:209:     // Do nothing without letter/digit
-rtprompt/rtprompt.go:210:     if key.Rune == 0 {
-rtprompt/rtprompt.go:211:       break
-rtprompt/rtprompt.go:212:     }
-rtprompt/rtprompt.go:213:     p.advance(string(key.Rune))
-rtprompt/rtprompt.go:214:   }
+**Only Repos**:
+
+Sometimes you only want the repos that match. These are clickable too!
+
+```
+> cs spf13/cobra --repos-only
+coxley/pmlproxy
+coxley/codesearch
 ```
