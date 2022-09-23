@@ -23,7 +23,7 @@ repository names take you yet but you can find out!
 go install github.com/coxley/codesearch/cs@latest
 
 # or with a version like...
-# go install github.com/coxley/codesearch/cs@v1.0.1
+# go install github.com/coxley/codesearch/cs@v1.0.3
 ```
 
 # Motivation
