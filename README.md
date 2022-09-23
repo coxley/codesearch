@@ -1,9 +1,10 @@
 # Codesearch
 
-GitHub search needs a lot of work.
+Search code on GitHub with better semantics — from the command-line.
 
-Ultimately, you want a command-line with grep-like semantics. It should be
-fluid, iterative. Maybe even impress your co-workers.
+Ultimately, I want grep-like semantics to explore across hundreds of
+projects. It should be fluid, iterative, and maybe even impress my
+co-workers.
 
 Codesearch is simple: `cs [term]`. It shows you the information you need
 without much more. There are two output modes: the default is similar to
